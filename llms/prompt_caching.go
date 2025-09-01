@@ -6,7 +6,7 @@ import "time"
 type CacheControl struct {
 	// Type specifies the type of caching. For Anthropic: "ephemeral"
 	Type string `json:"type,omitempty"`
-	
+
 	// Duration specifies cache lifetime. Anthropic supports 5min (default) or 1hour
 	Duration time.Duration `json:"-"`
 }
@@ -38,7 +38,7 @@ func EphemeralCache() *CacheControl {
 // EphemeralCacheOneHour creates a 1-hour ephemeral cache control for Anthropic.
 func EphemeralCacheOneHour() *CacheControl {
 	return &CacheControl{
-		Type:     "ephemeral", 
+		Type:     "ephemeral",
 		Duration: time.Hour,
 	}
 }

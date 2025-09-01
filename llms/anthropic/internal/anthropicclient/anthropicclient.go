@@ -136,12 +136,12 @@ type MessageRequest struct {
 	Tools       []Tool        `json:"tools,omitempty"`
 	StopWords   []string      `json:"stop_sequences,omitempty"`
 	Stream      bool          `json:"stream,omitempty"`
-	
+
 	// Extended thinking parameters (Claude 3.7+)
 	BudgetTokens int `json:"budget_tokens,omitempty"`
 
 	// BetaHeaders are additional beta feature headers to include
-	BetaHeaders   []string                                     `json:"-"`
+	BetaHeaders   []string                                      `json:"-"`
 	StreamingFunc func(ctx context.Context, chunk []byte) error `json:"-"`
 }
 
@@ -173,7 +173,7 @@ func (c *Client) setHeaders(req *http.Request, betaHeaders []string) {
 	// This is necessary as per https://docs.anthropic.com/en/api/versioning
 	// If this changes frequently enough we should expose it as an option..
 	req.Header.Set("anthropic-version", "2023-06-01") // nolint:canonicalheader
-	
+
 	// Set beta headers from request, falling back to client default
 	if len(betaHeaders) > 0 {
 		for _, header := range betaHeaders {

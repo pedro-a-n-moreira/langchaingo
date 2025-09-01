@@ -8,16 +8,16 @@ type ThinkingMode string
 const (
 	// ThinkingModeNone disables thinking/reasoning.
 	ThinkingModeNone ThinkingMode = "none"
-	
+
 	// ThinkingModeLow allocates minimal tokens for thinking (~20% of max tokens).
 	ThinkingModeLow ThinkingMode = "low"
-	
+
 	// ThinkingModeMedium allocates moderate tokens for thinking (~50% of max tokens).
 	ThinkingModeMedium ThinkingMode = "medium"
-	
+
 	// ThinkingModeHigh allocates maximum tokens for thinking (~80% of max tokens).
 	ThinkingModeHigh ThinkingMode = "high"
-	
+
 	// ThinkingModeAuto lets the model decide how much thinking is needed.
 	ThinkingModeAuto ThinkingMode = "auto"
 )
@@ -26,22 +26,22 @@ const (
 type ThinkingConfig struct {
 	// Mode specifies the thinking mode (none, low, medium, high, auto).
 	Mode ThinkingMode `json:"mode,omitempty"`
-	
+
 	// BudgetTokens sets explicit token budget for thinking (provider-specific).
 	// For Anthropic: minimum 1024 tokens, up to 128K for Claude 3.7.
 	// For OpenAI: affects reasoning_effort parameter.
 	BudgetTokens int `json:"budget_tokens,omitempty"`
-	
+
 	// ReturnThinking controls whether thinking/reasoning is included in response.
 	// For OpenAI o1/o3: usually hidden by default.
 	// For Anthropic: returns summarized thinking in extended mode.
 	// For Ollama: controlled by "think" parameter.
 	ReturnThinking bool `json:"return_thinking,omitempty"`
-	
+
 	// StreamThinking enables streaming of thinking tokens as they're generated.
 	// Not all providers support this feature.
 	StreamThinking bool `json:"stream_thinking,omitempty"`
-	
+
 	// InterleaveThinking enables thinking between tool calls (Anthropic Claude 4+).
 	InterleaveThinking bool `json:"interleave_thinking,omitempty"`
 }
@@ -65,113 +65,73 @@ func WithThinking(config *ThinkingConfig) CallOption {
 	}
 }
 
+// getOrCreateThinkingConfig is a helper to get or create thinking config from metadata.
+func getOrCreateThinkingConfig(opts *CallOptions) *ThinkingConfig {
+	if opts.Metadata == nil {
+		opts.Metadata = make(map[string]interface{})
+	}
+
+	if existing, ok := opts.Metadata["thinking_config"].(*ThinkingConfig); ok {
+		return existing
+	}
+
+	config := DefaultThinkingConfig()
+	opts.Metadata["thinking_config"] = config
+	return config
+}
+
+// GetThinkingConfig safely retrieves thinking config from call options.
+// Returns nil if no thinking config is present.
+func GetThinkingConfig(opts *CallOptions) *ThinkingConfig {
+	if opts == nil || opts.Metadata == nil {
+		return nil
+	}
+
+	config, _ := opts.Metadata["thinking_config"].(*ThinkingConfig)
+	return config
+}
+
 // WithThinkingMode sets the thinking mode for the request.
 func WithThinkingMode(mode ThinkingMode) CallOption {
 	return func(opts *CallOptions) {
-		if opts.Metadata == nil {
-			opts.Metadata = make(map[string]interface{})
-		}
-		
-		// Get existing config or create new one
-		var config *ThinkingConfig
-		if existing, ok := opts.Metadata["thinking_config"].(*ThinkingConfig); ok {
-			config = existing
-		} else {
-			config = DefaultThinkingConfig()
-		}
-		
+		config := getOrCreateThinkingConfig(opts)
 		config.Mode = mode
-		opts.Metadata["thinking_config"] = config
 	}
 }
 
 // WithThinkingBudget sets explicit token budget for thinking.
 func WithThinkingBudget(tokens int) CallOption {
 	return func(opts *CallOptions) {
-		if opts.Metadata == nil {
-			opts.Metadata = make(map[string]interface{})
-		}
-		
-		// Get existing config or create new one
-		var config *ThinkingConfig
-		if existing, ok := opts.Metadata["thinking_config"].(*ThinkingConfig); ok {
-			config = existing
-		} else {
-			config = DefaultThinkingConfig()
-		}
-		
+		config := getOrCreateThinkingConfig(opts)
 		config.BudgetTokens = tokens
-		opts.Metadata["thinking_config"] = config
 	}
 }
 
 // WithReturnThinking enables returning thinking/reasoning in the response.
 func WithReturnThinking(enabled bool) CallOption {
 	return func(opts *CallOptions) {
-		if opts.Metadata == nil {
-			opts.Metadata = make(map[string]interface{})
-		}
-		
-		// Get existing config or create new one
-		var config *ThinkingConfig
-		if existing, ok := opts.Metadata["thinking_config"].(*ThinkingConfig); ok {
-			config = existing
-		} else {
-			config = DefaultThinkingConfig()
-		}
-		
+		config := getOrCreateThinkingConfig(opts)
 		config.ReturnThinking = enabled
-		opts.Metadata["thinking_config"] = config
 	}
 }
 
 // WithStreamThinking enables streaming of thinking tokens.
 func WithStreamThinking(enabled bool) CallOption {
 	return func(opts *CallOptions) {
-		if opts.Metadata == nil {
-			opts.Metadata = make(map[string]interface{})
-		}
-		
-		// Get existing config or create new one
-		var config *ThinkingConfig
-		if existing, ok := opts.Metadata["thinking_config"].(*ThinkingConfig); ok {
-			config = existing
-		} else {
-			config = DefaultThinkingConfig()
-		}
-		
+		config := getOrCreateThinkingConfig(opts)
 		config.StreamThinking = enabled
-		opts.Metadata["thinking_config"] = config
 	}
 }
 
 // WithInterleaveThinking enables interleaved thinking between tool calls (Anthropic).
 func WithInterleaveThinking(enabled bool) CallOption {
 	return func(opts *CallOptions) {
-		if opts.Metadata == nil {
-			opts.Metadata = make(map[string]interface{})
-		}
-		
-		// Get existing config or create new one
-		var config *ThinkingConfig
-		if existing, ok := opts.Metadata["thinking_config"].(*ThinkingConfig); ok {
-			config = existing
-		} else {
-			config = DefaultThinkingConfig()
-		}
-		
+		config := getOrCreateThinkingConfig(opts)
 		config.InterleaveThinking = enabled
-		opts.Metadata["thinking_config"] = config
 	}
 }
 
-// ReasoningModel is an optional interface that LLM implementations can provide
-// to indicate they support extended reasoning/thinking capabilities with the current model.
-type ReasoningModel interface {
-	// SupportsReasoning returns true if the current model configuration supports
-	// extended reasoning/thinking tokens.
-	SupportsReasoning() bool
-}
+// Note: ReasoningModel interface is defined in llms.go
 
 // IsReasoningModel returns true if the model is a reasoning/thinking model.
 // This includes OpenAI o1/o3/GPT-5 series, Anthropic Claude 3.7+, DeepSeek reasoner, etc.
@@ -188,7 +148,7 @@ func SupportsReasoningModel(llm interface{}) bool {
 	if reasoner, ok := llm.(ReasoningModel); ok {
 		return reasoner.SupportsReasoning()
 	}
-	
+
 	// Fallback: check if we can extract a model string somehow
 	// This is a best-effort approach for backwards compatibility
 	return false
@@ -199,7 +159,7 @@ func SupportsReasoningModel(llm interface{}) bool {
 // the default detection logic.
 func DefaultIsReasoningModel(model string) bool {
 	modelLower := strings.ToLower(model)
-	
+
 	// OpenAI reasoning models
 	if strings.HasPrefix(modelLower, "gpt-5") ||
 		strings.HasPrefix(modelLower, "o1-") ||
@@ -210,7 +170,7 @@ func DefaultIsReasoningModel(model string) bool {
 		strings.Contains(modelLower, "o4-mini") {
 		return true
 	}
-	
+
 	// Anthropic extended thinking models
 	if strings.Contains(modelLower, "claude-3-7") ||
 		strings.Contains(modelLower, "claude-3.7") ||
@@ -219,18 +179,18 @@ func DefaultIsReasoningModel(model string) bool {
 		strings.Contains(modelLower, "claude-sonnet-4") {
 		return true
 	}
-	
+
 	// DeepSeek reasoner
 	if strings.Contains(modelLower, "deepseek-reasoner") ||
 		strings.Contains(modelLower, "deepseek-r1") {
 		return true
 	}
-	
+
 	// Grok reasoning models
 	if strings.Contains(modelLower, "grok") && strings.Contains(modelLower, "reasoning") {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -255,19 +215,19 @@ func CalculateThinkingBudget(mode ThinkingMode, maxTokens int) int {
 type ThinkingTokenUsage struct {
 	// ThinkingTokens is the total number of thinking/reasoning tokens used.
 	ThinkingTokens int `json:"thinking_tokens,omitempty"`
-	
+
 	// ThinkingInputTokens is the number of input tokens used for thinking.
 	ThinkingInputTokens int `json:"thinking_input_tokens,omitempty"`
-	
+
 	// ThinkingOutputTokens is the number of output tokens from thinking.
 	ThinkingOutputTokens int `json:"thinking_output_tokens,omitempty"`
-	
+
 	// ThinkingCachedTokens is the number of cached thinking tokens (if applicable).
 	ThinkingCachedTokens int `json:"thinking_cached_tokens,omitempty"`
-	
+
 	// ThinkingBudgetUsed is the actual budget used vs allocated.
 	ThinkingBudgetUsed int `json:"thinking_budget_used,omitempty"`
-	
+
 	// ThinkingBudgetAllocated is the budget that was allocated.
 	ThinkingBudgetAllocated int `json:"thinking_budget_allocated,omitempty"`
 }
@@ -277,9 +237,9 @@ func ExtractThinkingTokens(generationInfo map[string]any) *ThinkingTokenUsage {
 	if generationInfo == nil {
 		return nil
 	}
-	
+
 	usage := &ThinkingTokenUsage{}
-	
+
 	// OpenAI-style reasoning tokens
 	if v, ok := generationInfo["ReasoningTokens"].(int); ok {
 		usage.ThinkingTokens = v
@@ -287,7 +247,7 @@ func ExtractThinkingTokens(generationInfo map[string]any) *ThinkingTokenUsage {
 	if v, ok := generationInfo["CompletionReasoningTokens"].(int); ok {
 		usage.ThinkingOutputTokens = v
 	}
-	
+
 	// Anthropic-style thinking tokens (would be in extended thinking mode)
 	if v, ok := generationInfo["ThinkingTokens"].(int); ok {
 		usage.ThinkingTokens = v
@@ -298,7 +258,7 @@ func ExtractThinkingTokens(generationInfo map[string]any) *ThinkingTokenUsage {
 	if v, ok := generationInfo["ThinkingOutputTokens"].(int); ok {
 		usage.ThinkingOutputTokens = v
 	}
-	
+
 	// Budget information
 	if v, ok := generationInfo["ThinkingBudgetUsed"].(int); ok {
 		usage.ThinkingBudgetUsed = v
@@ -306,6 +266,6 @@ func ExtractThinkingTokens(generationInfo map[string]any) *ThinkingTokenUsage {
 	if v, ok := generationInfo["ThinkingBudgetAllocated"].(int); ok {
 		usage.ThinkingBudgetAllocated = v
 	}
-	
+
 	return usage
 }

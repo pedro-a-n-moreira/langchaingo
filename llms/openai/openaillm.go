@@ -29,10 +29,10 @@ const (
 
 // ModelCapability defines what a model supports
 type ModelCapability struct {
-	Pattern           string // Regex pattern to match model names
-	SupportsSystem    bool   // If true, supports system messages
-	SupportsThinking  bool   // If true, supports reasoning/thinking
-	SupportsCaching   bool   // If true, supports prompt caching
+	Pattern          string // Regex pattern to match model names
+	SupportsSystem   bool   // If true, supports system messages
+	SupportsThinking bool   // If true, supports reasoning/thinking
+	SupportsCaching  bool   // If true, supports prompt caching
 	// Add more capabilities as needed
 }
 
@@ -40,24 +40,24 @@ type ModelCapability struct {
 var modelCapabilities = []ModelCapability{
 	// OpenAI reasoning models (o1, o3 series) - no system message support
 	{
-		Pattern:           `(?i)^o[13](-mini|-preview)?$`, // Matches o1, o1-mini, o1-preview, o3, o3-mini
-		SupportsSystem:    false, // O1 models don't support system messages
-		SupportsThinking:  true,
-		SupportsCaching:   false,
+		Pattern:          `(?i)^o[13](-mini|-preview)?$`, // Matches o1, o1-mini, o1-preview, o3, o3-mini
+		SupportsSystem:   false,                          // O1 models don't support system messages
+		SupportsThinking: true,
+		SupportsCaching:  false,
 	},
 	// GPT-4 models
 	{
-		Pattern:           `(?i)^gpt-4`, // Matches gpt-4, gpt-4-turbo, etc.
-		SupportsSystem:    true,
-		SupportsThinking:  false,
-		SupportsCaching:   false, // OpenAI caching coming soon
+		Pattern:          `(?i)^gpt-4`, // Matches gpt-4, gpt-4-turbo, etc.
+		SupportsSystem:   true,
+		SupportsThinking: false,
+		SupportsCaching:  false, // OpenAI caching coming soon
 	},
 	// GPT-3.5 models
 	{
-		Pattern:           `(?i)^gpt-3\.5`,
-		SupportsSystem:    true,
-		SupportsThinking:  false,
-		SupportsCaching:   false,
+		Pattern:          `(?i)^gpt-3\.5`,
+		SupportsSystem:   true,
+		SupportsThinking: false,
+		SupportsCaching:  false,
 	},
 	// Future models can be added here
 }
@@ -71,9 +71,9 @@ func getModelCapabilities(model string) ModelCapability {
 	}
 	// Default capabilities - assume standard model
 	return ModelCapability{
-		SupportsSystem:    true,
-		SupportsThinking:  false,
-		SupportsCaching:   false,
+		SupportsSystem:   true,
+		SupportsThinking: false,
+		SupportsCaching:  false,
 	}
 }
 
@@ -110,21 +110,16 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 	for _, opt := range options {
 		opt(&opts)
 	}
-	
-	// Update model if overridden
-	if opts.Model != "" {
-		o.model = opts.Model
-	}
 
-	// Determine the effective model for this request
+	// Determine the effective model for this request (don't mutate o.model to avoid races)
 	effectiveModel := opts.Model
 	if effectiveModel == "" {
 		effectiveModel = o.model
 	}
-	
+
 	// Get capabilities for this model
 	modelCaps := getModelCapabilities(effectiveModel)
-	
+
 	// For models that don't support system messages, we need to merge them into user messages
 	var systemContent string
 	if !modelCaps.SupportsSystem {
@@ -142,14 +137,14 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 			}
 		}
 	}
-	
+
 	chatMsgs := make([]*ChatMessage, 0, len(messages))
 	for _, mc := range messages {
 		// Skip system messages for models that don't support them
 		if mc.Role == llms.ChatMessageTypeSystem && !modelCaps.SupportsSystem {
 			continue
 		}
-		
+
 		msg := &ChatMessage{MultiContent: mc.Parts}
 		switch mc.Role {
 		case llms.ChatMessageTypeSystem:
@@ -221,33 +216,33 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 	var reasoningEffort string
 	// Commented out for now since current o1 models don't support this parameter
 	/*
-	if opts.Metadata != nil {
-		if config, ok := opts.Metadata["thinking_config"].(*llms.ThinkingConfig); ok {
-			// Map thinking mode to reasoning effort
-			switch config.Mode {
-			case llms.ThinkingModeLow:
-				reasoningEffort = "low"
-			case llms.ThinkingModeMedium:
-				reasoningEffort = "medium"
-			case llms.ThinkingModeHigh:
-				reasoningEffort = "high"
-			}
-			
-			// Handle streaming for thinking
-			if config.StreamThinking && opts.StreamingReasoningFunc == nil && opts.StreamingFunc != nil {
-				// Set up default reasoning streaming if requested but not provided
-				// Wrap the single-param streaming func into a reasoning func
-				opts.StreamingReasoningFunc = func(ctx context.Context, reasoningChunk []byte, chunk []byte) error {
-					// For default behavior, we might want to stream both or just the main content
-					// Here we'll just stream the main content chunk
-					if len(chunk) > 0 {
-						return opts.StreamingFunc(ctx, chunk)
+		if opts.Metadata != nil {
+			if config, ok := opts.Metadata["thinking_config"].(*llms.ThinkingConfig); ok {
+				// Map thinking mode to reasoning effort
+				switch config.Mode {
+				case llms.ThinkingModeLow:
+					reasoningEffort = "low"
+				case llms.ThinkingModeMedium:
+					reasoningEffort = "medium"
+				case llms.ThinkingModeHigh:
+					reasoningEffort = "high"
+				}
+
+				// Handle streaming for thinking
+				if config.StreamThinking && opts.StreamingReasoningFunc == nil && opts.StreamingFunc != nil {
+					// Set up default reasoning streaming if requested but not provided
+					// Wrap the single-param streaming func into a reasoning func
+					opts.StreamingReasoningFunc = func(ctx context.Context, reasoningChunk []byte, chunk []byte) error {
+						// For default behavior, we might want to stream both or just the main content
+						// Here we'll just stream the main content chunk
+						if len(chunk) > 0 {
+							return opts.StreamingFunc(ctx, chunk)
+						}
+						return nil
 					}
-					return nil
 				}
 			}
 		}
-	}
 	*/
 
 	// Filter out internal metadata that shouldn't be sent to API
@@ -344,13 +339,13 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 			ReasoningContent: c.Message.ReasoningContent,
 			StopReason:       fmt.Sprint(c.FinishReason),
 			GenerationInfo: map[string]any{
-				"CompletionTokens":                   result.Usage.CompletionTokens,
-				"PromptTokens":                       result.Usage.PromptTokens,
-				"TotalTokens":                        result.Usage.TotalTokens,
-				"ReasoningTokens":                    result.Usage.CompletionTokensDetails.ReasoningTokens,
-				"PromptAudioTokens":                  result.Usage.PromptTokensDetails.AudioTokens,
+				"CompletionTokens":  result.Usage.CompletionTokens,
+				"PromptTokens":      result.Usage.PromptTokens,
+				"TotalTokens":       result.Usage.TotalTokens,
+				"ReasoningTokens":   result.Usage.CompletionTokensDetails.ReasoningTokens,
+				"PromptAudioTokens": result.Usage.PromptTokensDetails.AudioTokens,
 				// Standardized fields for cross-provider compatibility
-				"ThinkingContent":                    c.Message.ReasoningContent, // Standardized field
+				"ThinkingContent":                    c.Message.ReasoningContent,                           // Standardized field
 				"ThinkingTokens":                     result.Usage.CompletionTokensDetails.ReasoningTokens, // Standardized field
 				"PromptCachedTokens":                 result.Usage.PromptTokensDetails.CachedTokens,
 				"CompletionAudioTokens":              result.Usage.CompletionTokensDetails.AudioTokens,
@@ -397,33 +392,33 @@ func (o *LLM) SupportsReasoning() bool {
 	if model == "" {
 		model = o.client.Model
 	}
-	
+
 	modelLower := strings.ToLower(model)
-	
+
 	// OpenAI o1 series (reasoning models)
 	if strings.HasPrefix(modelLower, "o1-") ||
 		strings.Contains(modelLower, "o1-preview") ||
 		strings.Contains(modelLower, "o1-mini") {
 		return true
 	}
-	
+
 	// OpenAI o3 series
 	if strings.HasPrefix(modelLower, "o3-") ||
 		strings.Contains(modelLower, "o3-mini") {
 		return true
 	}
-	
+
 	// Future o4+ series
 	if strings.HasPrefix(modelLower, "o4-") ||
 		strings.HasPrefix(modelLower, "o5-") {
 		return true
 	}
-	
+
 	// GPT-5 series (expected to have reasoning capabilities)
 	if strings.HasPrefix(modelLower, "gpt-5") {
 		return true
 	}
-	
+
 	return false
 }
 

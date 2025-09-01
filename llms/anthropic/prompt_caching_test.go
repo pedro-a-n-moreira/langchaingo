@@ -35,7 +35,7 @@ func TestAnthropicPromptCaching(t *testing.T) {
 
 	messages := []llms.MessageContent{
 		{
-			Role: llms.ChatMessageTypeSystem,
+			Role:  llms.ChatMessageTypeSystem,
 			Parts: []llms.ContentPart{cachedPart},
 		},
 		{
@@ -74,7 +74,7 @@ func TestAnthropicPromptCaching(t *testing.T) {
 
 	messages2 := []llms.MessageContent{
 		{
-			Role: llms.ChatMessageTypeSystem,
+			Role:  llms.ChatMessageTypeSystem,
 			Parts: []llms.ContentPart{longCachePart},
 		},
 		{
@@ -102,7 +102,7 @@ func TestAnthropicPromptCaching(t *testing.T) {
 func TestAnthropicCacheControlInMessages(t *testing.T) {
 	// Test that cache control is properly handled in message processing
 	// This is a unit test that doesn't require API calls
-	
+
 	cachedText := llms.WithCacheControl(
 		llms.TextPart("This is cached content"),
 		llms.EphemeralCache(),
@@ -116,24 +116,24 @@ func TestAnthropicCacheControlInMessages(t *testing.T) {
 	// This tests that the message can be created without errors
 	// The actual processing is tested through integration tests
 	messages := []llms.MessageContent{message}
-	
+
 	if len(messages) != 1 {
 		t.Error("expected single message")
 	}
-	
+
 	if len(messages[0].Parts) != 1 {
 		t.Error("expected single part in message")
 	}
-	
+
 	cached, ok := messages[0].Parts[0].(llms.CachedContent)
 	if !ok {
 		t.Error("expected CachedContent part")
 	}
-	
+
 	if cached.CacheControl == nil {
 		t.Error("expected cache control to be set")
 	}
-	
+
 	if cached.CacheControl.Type != "ephemeral" {
 		t.Errorf("expected ephemeral cache type, got %q", cached.CacheControl.Type)
 	}
@@ -142,19 +142,19 @@ func TestAnthropicCacheControlInMessages(t *testing.T) {
 func TestAnthropicBetaHeaders(t *testing.T) {
 	// Test that beta headers option works correctly
 	option := llms.WithAnthropicCachingHeaders()
-	
+
 	var opts llms.CallOptions
 	option(&opts)
-	
+
 	if opts.Metadata == nil {
 		t.Fatal("metadata should be initialized")
 	}
-	
+
 	headers, ok := opts.Metadata["anthropic:beta_headers"].([]string)
 	if !ok {
 		t.Fatal("anthropic:beta_headers should be a []string")
 	}
-	
+
 	expectedHeader := "prompt-caching-2024-07-31"
 	if len(headers) != 1 || headers[0] != expectedHeader {
 		t.Errorf("expected [%q], got %v", expectedHeader, headers)

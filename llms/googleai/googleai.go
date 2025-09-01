@@ -167,10 +167,10 @@ func convertCandidates(candidates []*genai.Candidate, usage *genai.UsageMetadata
 			metadata["CompletionTokens"] = usage.CandidatesTokenCount
 			metadata["TotalTokens"] = usage.TotalTokenCount
 		}
-		
+
 		// Google AI doesn't separate thinking content like OpenAI o1, but we provide empty standardized fields
-		metadata["ThinkingContent"] = ""  // Google models don't separate thinking content
-		metadata["ThinkingTokens"] = 0    // Google models don't track thinking tokens separately
+		metadata["ThinkingContent"] = "" // Google models don't separate thinking content
+		metadata["ThinkingTokens"] = 0   // Google models don't track thinking tokens separately
 
 		contentResponse.Choices = append(contentResponse.Choices,
 			&llms.ContentChoice{

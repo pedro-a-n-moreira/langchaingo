@@ -44,8 +44,11 @@ func main() {
 		llms.WithMaxTokens(500),
 	)
 	if err != nil {
-		log.Printf("Error: %v", err)
-		return
+		log.Fatalf("Failed to generate content: %v\nPlease check your API key and network connection.", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		log.Fatal("No response choices returned from the model")
 	}
 
 	fmt.Printf("Response: %s\n", resp.Choices[0].Content)
@@ -69,8 +72,11 @@ func main() {
 		llms.WithThinkingMode(llms.ThinkingModeLow),
 	)
 	if err != nil {
-		log.Printf("Error: %v", err)
-		return
+		log.Fatalf("Failed to generate content with low reasoning: %v", err)
+	}
+
+	if len(resp2.Choices) == 0 {
+		log.Fatal("No response choices returned from the model")
 	}
 
 	fmt.Printf("Response: %s\n", resp2.Choices[0].Content)

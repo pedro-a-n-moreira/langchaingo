@@ -90,11 +90,6 @@ func (o *LLM) GenerateContent(ctx context.Context, messages []llms.MessageConten
 	for _, opt := range options {
 		opt(opts)
 	}
-	
-	// Update model if overridden
-	if opts.Model != "" {
-		o.model = opts.Model
-	}
 
 	if o.client.UseLegacyTextCompletionsAPI {
 		return generateCompletionsContent(ctx, o, messages, opts)
@@ -147,7 +142,7 @@ func generateMessagesContent(ctx context.Context, o *LLM, messages []llms.Messag
 	}
 
 	tools := toolsToTools(opts.Tools)
-	
+
 	// Extract beta headers for prompt caching support
 	var betaHeaders []string
 	if opts.Metadata != nil {
@@ -155,34 +150,42 @@ func generateMessagesContent(ctx context.Context, o *LLM, messages []llms.Messag
 			betaHeaders = headers
 		}
 	}
-	
+
 	// Extract thinking configuration
 	var budgetTokens int
 	if opts.Metadata != nil {
 		if config, ok := opts.Metadata["thinking_config"].(*llms.ThinkingConfig); ok {
 			// Only set budget_tokens for models that support extended thinking
 			// Claude 3.7+ and Claude 4+ support this feature
-			if o.SupportsReasoning() {
+			currentModel := opts.Model
+			if currentModel == "" {
+				currentModel = o.model
+			}
+			if supportsReasoningForModel(currentModel) {
 				if config.BudgetTokens > 0 {
 					budgetTokens = config.BudgetTokens
 				} else if config.Mode != llms.ThinkingModeNone {
 					// Calculate budget based on mode
 					budgetTokens = llms.CalculateThinkingBudget(config.Mode, opts.MaxTokens)
 				}
-				
-				// Ensure minimum budget for Claude 3.7+ if thinking is enabled
-				if budgetTokens > 0 && budgetTokens < 1024 {
-					budgetTokens = 1024 // Minimum for Claude
+
+				// Ensure budget is within valid range for Claude 3.7+
+				if budgetTokens > 0 {
+					if budgetTokens < 1024 {
+						budgetTokens = 1024 // Minimum for Claude
+					} else if budgetTokens > 128000 {
+						budgetTokens = 128000 // Maximum for Claude (128K)
+					}
 				}
 			}
-			
+
 			// Add interleaved thinking header if requested (Claude 4+)
-			if config.InterleaveThinking && o.SupportsReasoning() {
+			if config.InterleaveThinking && supportsReasoningForModel(currentModel) {
 				betaHeaders = append(betaHeaders, "interleaved-thinking-2025-05-14")
 			}
 		}
 	}
-	
+
 	result, err := o.client.CreateMessage(ctx, &anthropicclient.MessageRequest{
 		Model:         opts.Model,
 		Messages:      chatMessages,
@@ -213,7 +216,7 @@ func generateMessagesContent(ctx context.Context, o *LLM, messages []llms.Messag
 			if textContent, ok := content.(*anthropicclient.TextContent); ok {
 				// Extract thinking content from the response text
 				thinkingContent, outputContent := extractThinkingFromText(textContent.Text)
-				
+
 				choices[i] = &llms.ContentChoice{
 					Content:    textContent.Text,
 					StopReason: result.StopReason,
@@ -223,8 +226,8 @@ func generateMessagesContent(ctx context.Context, o *LLM, messages []llms.Messag
 						"CacheCreationInputTokens": result.Usage.CacheCreationInputTokens,
 						"CacheReadInputTokens":     result.Usage.CacheReadInputTokens,
 						// Standardized fields for cross-provider compatibility
-						"ThinkingContent":          thinkingContent, // Standardized field
-						"OutputContent":            outputContent,   // Standardized field
+						"ThinkingContent": thinkingContent, // Standardized field
+						"OutputContent":   outputContent,   // Standardized field
 					},
 				}
 			} else {
@@ -338,7 +341,7 @@ func handleHumanMessage(msg llms.MessageContent) (anthropicclient.ChatMessage, e
 					Type: p.CacheControl.Type,
 				}
 			}
-			
+
 			// Process the wrapped content
 			switch wrapped := p.ContentPart.(type) {
 			case llms.TextContent:
@@ -445,34 +448,38 @@ func handleToolMessage(msg llms.MessageContent) (anthropicclient.ChatMessage, er
 // SupportsReasoning implements the ReasoningModel interface.
 // Returns true if the current model supports extended thinking capabilities.
 func (o *LLM) SupportsReasoning() bool {
-	// Check the current model (may have been overridden by WithModel option)
-	model := o.model
+	return supportsReasoningForModel(o.model)
+}
+
+// supportsReasoningForModel checks if a specific model supports reasoning.
+// This is a separate function to avoid race conditions when checking capabilities.
+func supportsReasoningForModel(model string) bool {
 	if model == "" {
-		model = o.client.Model
+		return false
 	}
-	
+
 	modelLower := strings.ToLower(model)
-	
+
 	// Claude 3.7+ supports extended thinking
 	if strings.Contains(modelLower, "claude-3-7") ||
 		strings.Contains(modelLower, "claude-3.7") {
 		return true
 	}
-	
+
 	// Claude 4+ supports extended thinking with interleaving
 	if strings.Contains(modelLower, "claude-4") ||
 		strings.Contains(modelLower, "claude-opus-4") ||
 		strings.Contains(modelLower, "claude-sonnet-4") {
 		return true
 	}
-	
+
 	// Future Claude 5+ expected to support reasoning
 	if strings.Contains(modelLower, "claude-5") ||
 		strings.Contains(modelLower, "claude-opus-5") ||
 		strings.Contains(modelLower, "claude-sonnet-5") {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -485,15 +492,15 @@ func extractThinkingFromText(fullText string) (thinkingContent, outputContent st
 		end := strings.Index(fullText, "</thinking>")
 		if start >= 0 && end > start {
 			// Extract thinking content between tags
-			thinkingContent = fullText[start+10:end] // +10 for "<thinking>"
-			
+			thinkingContent = fullText[start+10 : end] // +10 for "<thinking>"
+
 			// Extract output content (everything before and after thinking tags)
 			beforeThinking := strings.TrimSpace(fullText[:start])
 			afterThinking := ""
 			if end+12 < len(fullText) { // +12 for "</thinking>"
 				afterThinking = strings.TrimSpace(fullText[end+12:])
 			}
-			
+
 			// Combine non-thinking content
 			if beforeThinking != "" && afterThinking != "" {
 				outputContent = beforeThinking + "\n\n" + afterThinking
@@ -502,11 +509,11 @@ func extractThinkingFromText(fullText string) (thinkingContent, outputContent st
 			} else {
 				outputContent = afterThinking
 			}
-			
+
 			return strings.TrimSpace(thinkingContent), strings.TrimSpace(outputContent)
 		}
 	}
-	
+
 	// If no thinking tags found, treat entire text as output
 	return "", fullText
 }

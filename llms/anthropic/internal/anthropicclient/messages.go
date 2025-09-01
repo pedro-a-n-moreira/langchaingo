@@ -43,7 +43,7 @@ type messagePayload struct {
 	Temperature float64       `json:"temperature"`
 	Tools       []Tool        `json:"tools,omitempty"`
 	TopP        float64       `json:"top_p,omitempty"`
-	
+
 	// Extended thinking parameters (Claude 3.7+)
 	BudgetTokens int `json:"budget_tokens,omitempty"`
 
@@ -68,8 +68,8 @@ type Content interface {
 }
 
 type TextContent struct {
-	Type         string       `json:"type"`
-	Text         string       `json:"text"`
+	Type         string        `json:"type"`
+	Text         string        `json:"text"`
 	CacheControl *CacheControl `json:"cache_control,omitempty"`
 }
 
@@ -78,8 +78,8 @@ func (tc TextContent) GetType() string {
 }
 
 type ImageContent struct {
-	Type         string       `json:"type"`
-	Source       ImageSource  `json:"source"`
+	Type         string        `json:"type"`
+	Source       ImageSource   `json:"source"`
 	CacheControl *CacheControl `json:"cache_control,omitempty"`
 }
 
@@ -108,9 +108,9 @@ func (tuc ToolUseContent) GetType() string {
 }
 
 type ToolResultContent struct {
-	Type         string       `json:"type"`
-	ToolUseID    string       `json:"tool_use_id"`
-	Content      string       `json:"content"`
+	Type         string        `json:"type"`
+	ToolUseID    string        `json:"tool_use_id"`
+	Content      string        `json:"content"`
 	CacheControl *CacheControl `json:"cache_control,omitempty"`
 }
 
@@ -127,10 +127,10 @@ type MessageResponsePayload struct {
 	StopSequence string    `json:"stop_sequence"`
 	Type         string    `json:"type"`
 	Usage        struct {
-		InputTokens               int `json:"input_tokens"`
-		OutputTokens              int `json:"output_tokens"`
-		CacheCreationInputTokens  int `json:"cache_creation_input_tokens,omitempty"`
-		CacheReadInputTokens      int `json:"cache_read_input_tokens,omitempty"`
+		InputTokens              int `json:"input_tokens"`
+		OutputTokens             int `json:"output_tokens"`
+		CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
+		CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
 	} `json:"usage"`
 }
 
@@ -330,7 +330,7 @@ func handleMessageStartEvent(event map[string]interface{}, response MessageRespo
 	response.Role = getString(message, "role")
 	response.Type = getString(message, "type")
 	response.Usage.InputTokens = int(inputTokens)
-	
+
 	// Capture cache token information if present
 	if cacheCreationTokens, err := getFloat64(usage, "cache_creation_input_tokens"); err == nil {
 		response.Usage.CacheCreationInputTokens = int(cacheCreationTokens)
